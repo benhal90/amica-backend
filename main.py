@@ -7,7 +7,7 @@ from pinecone import Pinecone
 # Initialize OpenAI and Pinecone
 openai.api_key = os.getenv("OPENAI_API_KEY")
 pinecone = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index = pinecone.Index("am-academy-content-index")
+index = pinecone.Index("am-academy-content-index-large")
 
 app = FastAPI()
 
