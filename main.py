@@ -6,9 +6,8 @@ from pinecone import Pinecone
 
 # Initialize OpenAI and Pinecone
 openai.api_key = os.getenv("OPENAI_API_KEY")
-
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index = pc.Index("am-academy-content-index")
+pinecone = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+index = pinecone.Index("am-academy-content-index")
 
 app = FastAPI()
 
@@ -18,30 +17,27 @@ class QueryRequest(BaseModel):
 @app.post("/ask")
 async def ask_question(request: QueryRequest):
     try:
-        # Step 1: Embed the query
+        # Embed the query with text-embedding-3-large
         response = openai.embeddings.create(
             input=request.query,
             model="text-embedding-3-large"
         )
         query_vector = response.data[0].embedding
 
-        # Step 2: Query Pinecone
+        # Query Pinecone
         query_result = index.query(
             vector=query_vector,
             top_k=5,
-            include_metadata=True
+            include_metadata=True,
+            namespace="am-fundamentals"  # <--- THIS IS IMPORTANT!
         )
 
-        print("QUERY RESULT RAW:", query_result)  # NEW DEBUG LINE
-
-        # Step 3: Prepare a simple response
+        # Prepare the response
         results = []
         for match in query_result.matches:
             metadata = match.metadata
             if metadata:
                 results.append(metadata.get('text', 'No text found'))
-
-        print("PARSED RESULTS:", results)  # NEW DEBUG LINE
 
         return {"results": results}
 
