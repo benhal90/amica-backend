@@ -18,10 +18,10 @@ class QueryRequest(BaseModel):
 @app.post("/ask")
 async def ask_question(request: QueryRequest):
     try:
-        # Step 1: Embed the query using OpenAI (correct model!)
+        # Step 1: Embed the query
         response = openai.embeddings.create(
             input=request.query,
-            model="text-embedding-3-large"   # <- IMPORTANT: match your index!
+            model="text-embedding-3-large"
         )
         query_vector = response.data[0].embedding
 
@@ -32,12 +32,16 @@ async def ask_question(request: QueryRequest):
             include_metadata=True
         )
 
+        print("QUERY RESULT RAW:", query_result)  # NEW DEBUG LINE
+
         # Step 3: Prepare a simple response
         results = []
         for match in query_result.matches:
             metadata = match.metadata
             if metadata:
                 results.append(metadata.get('text', 'No text found'))
+
+        print("PARSED RESULTS:", results)  # NEW DEBUG LINE
 
         return {"results": results}
 
