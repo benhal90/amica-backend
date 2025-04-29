@@ -1,45 +1,45 @@
-# main.py
-
-import os
 from fastapi import FastAPI
 from pydantic import BaseModel
+import os
+import openai
 from pinecone import Pinecone
 
-import openai
+# Initialize OpenAI and Pinecone
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-app = FastAPI()
-
-# Initialize Pinecone (new style)
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-
-# Your Pinecone index
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("am-academy-content-index")
 
-# Initialize OpenAI
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+app = FastAPI()
 
 class QueryRequest(BaseModel):
     query: str
 
 @app.post("/ask")
-async def ask(request: QueryRequest):
-    # Search in Pinecone
-    query_result = index.query(
-        vector=[0.0]*1536,  # (placeholder - you should generate real embeddings)
-        top_k=1,
-        include_metadata=True
-    )
+async def ask_question(request: QueryRequest):
+    try:
+        # Step 1: Embed the query using OpenAI
+        response = openai.embeddings.create(
+            input=request.query,
+            model="text-embedding-ada-002"
+        )
+        query_vector = response.data[0].embedding
 
-    # Use the first match
-    text = query_result['matches'][0]['metadata']['text']
+        # Step 2: Query Pinecone
+        query_result = index.query(
+            vector=query_vector,
+            top_k=5,
+            include_metadata=True
+        )
 
-    # Ask OpenAI
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are an assistant for Additive Manufacturing."},
-            {"role": "user", "content": f"Based on the following content, answer this question:\n\nContent: {text}\n\nQuestion: {request.query}"}
-        ]
-    )
+        # Step 3: Prepare a simple response
+        results = []
+        for match in query_result.matches:
+            metadata = match.metadata
+            if metadata:
+                results.append(metadata.get('text', 'No text found'))
 
-    return {"answer": response['choices'][0]['message']['content']}
+        return {"results": results}
+
+    except Exception as e:
+        return {"error": str(e)}
